@@ -3,8 +3,8 @@ import ReactDOMServer from 'react-dom/server';
 import { polyfill } from 'interweave-ssr';
 import { render } from 'rut-dom';
 import { ALLOWED_TAG_LIST } from '../src/constants';
-import Element from '../src/Element';
-import Interweave from '../src/Interweave';
+import { Element } from '../src/Element';
+import { Interweave } from '../src/Interweave';
 import {
 	CodeTagMatcher,
 	LinkFilter,
@@ -43,7 +43,7 @@ describe('Interweave', () => {
 
 	it('can pass filters through props', () => {
 		const { root } = render<InterweaveProps>(
-			<Interweave filters={[new LinkFilter()]} content={'Foo <a href="foo.com">Bar</a> Baz'} />,
+			<Interweave content={'Foo <a href="foo.com">Bar</a> Baz'} filters={[new LinkFilter()]} />,
 		);
 
 		expect(root.findAt(Element, 0)).toMatchSnapshot();
@@ -52,13 +52,13 @@ describe('Interweave', () => {
 	it('can pass object based filters through props', () => {
 		const { root } = render<InterweaveProps>(
 			<Interweave
+				content={'Foo <a href="foo.com">Bar</a> Baz'}
 				filters={[
 					{
 						attribute: (name, value) =>
 							name === 'href' ? value.replace('foo.com', 'bar.net') : value,
 					},
 				]}
-				content={'Foo <a href="foo.com">Bar</a> Baz'}
 			/>,
 		);
 
@@ -68,9 +68,9 @@ describe('Interweave', () => {
 	it('can disable all filters using `disableFilters`', () => {
 		const { root } = render<InterweaveProps>(
 			<Interweave
-				filters={[new LinkFilter()]}
 				disableFilters
 				content={'Foo <a href="foo.com">Bar</a> Baz'}
+				filters={[new LinkFilter()]}
 			/>,
 		);
 
@@ -79,7 +79,7 @@ describe('Interweave', () => {
 
 	it('can pass matchers through props', () => {
 		const { root } = render<InterweaveProps>(
-			<Interweave matchers={[new CodeTagMatcher('b', '1')]} content="Foo [b] Bar Baz" />,
+			<Interweave content="Foo [b] Bar Baz" matchers={[new CodeTagMatcher('b', '1')]} />,
 		);
 
 		expect(root.findAt(Element, 0)).toMatchSnapshot();
@@ -88,6 +88,7 @@ describe('Interweave', () => {
 	it('can pass object based matchers through props', () => {
 		const { root } = render<InterweaveProps>(
 			<Interweave
+				content="Foo [b] Bar Baz"
 				matchers={[
 					{
 						inverseName: 'noB',
@@ -101,7 +102,6 @@ describe('Interweave', () => {
 						match: (string) => matchCodeTag(string, 'b'),
 					},
 				]}
-				content="Foo [b] Bar Baz"
 			/>,
 		);
 
@@ -111,9 +111,9 @@ describe('Interweave', () => {
 	it('can disable all matchers using `disableMatchers`', () => {
 		const { root } = render<InterweaveProps>(
 			<Interweave
-				matchers={[new CodeTagMatcher('b', '1')]}
 				disableMatchers
 				content="Foo [b] Bar Baz"
+				matchers={[new CodeTagMatcher('b', '1')]}
 			/>,
 		);
 
@@ -136,7 +136,7 @@ describe('Interweave', () => {
 
 	it('renders using a custom container element', () => {
 		const { root } = render<InterweaveProps>(
-			<Interweave content="<li>Foo</li><li>Bar</li><li>Baz</li>" containerTagName="ul" />,
+			<Interweave containerTagName="ul" content="<li>Foo</li><li>Bar</li><li>Baz</li>" />,
 		);
 
 		expect(root.findAt(Element, 0)).toMatchSnapshot();
@@ -145,23 +145,23 @@ describe('Interweave', () => {
 	describe('parseMarkup()', () => {
 		it('errors if onBeforeParse doesnt return a string', () => {
 			expect(() => {
-				// @ts-expect-error
-				render<InterweaveProps>(<Interweave onBeforeParse={() => 123} content="Foo" />);
+				// @ts-expect-error Invalid type
+				render<InterweaveProps>(<Interweave content="Foo" onBeforeParse={() => 123} />);
 			}).toThrowErrorMatchingSnapshot();
 		});
 
 		it('errors if onAfterParse doesnt return an array', () => {
 			expect(() => {
-				// @ts-expect-error
-				render<InterweaveProps>(<Interweave onAfterParse={() => 123} content="Foo" />);
+				// @ts-expect-error Invalid type
+				render<InterweaveProps>(<Interweave content="Foo" onAfterParse={() => 123} />);
 			}).toThrowErrorMatchingSnapshot();
 		});
 
 		it('can modify the markup using onBeforeParse', () => {
 			const { root } = render<InterweaveProps>(
 				<Interweave
-					onBeforeParse={(content) => content.replace(/b>/g, 'i>')}
 					content={'Foo <b>Bar</b> Baz'}
+					onBeforeParse={(content) => content.replace(/b>/g, 'i>')}
 				/>,
 			);
 
@@ -171,16 +171,16 @@ describe('Interweave', () => {
 		it('can modify the tree using onAfterParse', () => {
 			const { root } = render<InterweaveProps>(
 				<Interweave
+					content={'Foo <b>Bar</b> Baz'}
 					onAfterParse={(content) => {
 						content.push(
-							<Element tagName="u" key="1">
+							<Element key="1" tagName="u">
 								Qux
 							</Element>,
 						);
 
 						return content;
 					}}
-					content={'Foo <b>Bar</b> Baz'}
 				/>,
 			);
 
@@ -196,14 +196,14 @@ describe('Interweave', () => {
 		});
 
 		it('renders with a custom tag name', () => {
-			const { root } = render<InterweaveProps>(<Interweave tagName="div" content="Foo" />);
+			const { root } = render<InterweaveProps>(<Interweave content="Foo" tagName="div" />);
 
 			expect(root.findAt(Element, 0)).toHaveProp('tagName', 'div');
 		});
 
 		it('parses HTML', () => {
 			const { root } = render<InterweaveProps>(
-				<Interweave tagName="div" content={'Foo <b>Bar</b> Baz'} />,
+				<Interweave content={'Foo <b>Bar</b> Baz'} tagName="div" />,
 			);
 
 			expect(root.findAt(Element, 0)).toHaveProp('tagName', 'div');
@@ -215,10 +215,10 @@ describe('Interweave', () => {
 		it('handles void elements correctly', () => {
 			const { root } = render<InterweaveProps>(
 				<Interweave
-					tagName="div"
 					content={
 						'This has line breaks.<br>Horizontal rule.<hr />An image.<img src="http://domain.com/image.jpg" />'
 					}
+					tagName="div"
 				/>,
 			);
 
@@ -235,21 +235,21 @@ describe('Interweave', () => {
 
 		it('converts line breaks if `noHtmlExceptMatchers` is true', () => {
 			const { root } = render<InterweaveProps>(
-				<Interweave content={'Foo\nBar'} noHtmlExceptMatchers />,
+				<Interweave noHtmlExceptMatchers content={'Foo\nBar'} />,
 			);
 
 			expect(root.findAt(Element, 0)).toMatchSnapshot();
 		});
 
 		it('doesnt convert line breaks if `noHtml` is true', () => {
-			const { root } = render<InterweaveProps>(<Interweave content={'Foo\nBar'} noHtml />);
+			const { root } = render<InterweaveProps>(<Interweave noHtml content={'Foo\nBar'} />);
 
 			expect(root.findAt(Element, 0)).toMatchSnapshot();
 		});
 
 		it('doesnt convert line breaks if `disableLineBreaks` is true', () => {
 			const { root } = render<InterweaveProps>(
-				<Interweave content={'Foo\nBar'} disableLineBreaks />,
+				<Interweave disableLineBreaks content={'Foo\nBar'} />,
 			);
 
 			expect(root.findAt(Element, 0)).toMatchSnapshot();
@@ -271,7 +271,7 @@ describe('Interweave', () => {
 
 		it('doesnt filter invalid tags and attributes when disabled', () => {
 			const { root } = render<InterweaveProps>(
-				<Interweave content={MOCK_INVALID_MARKUP} allowElements allowAttributes />,
+				<Interweave allowAttributes allowElements content={MOCK_INVALID_MARKUP} />,
 			);
 
 			expect(root.findAt(Element, 0)).toMatchSnapshot();
@@ -281,7 +281,7 @@ describe('Interweave', () => {
 	describe('block list', () => {
 		it('filters blocked tags and attributes', () => {
 			const { root } = render<InterweaveProps>(
-				<Interweave content={MOCK_MARKUP} blockList={['aside', 'a']} />,
+				<Interweave blockList={['aside', 'a']} content={MOCK_MARKUP} />,
 			);
 
 			expect(root.findAt(Element, 0)).toMatchSnapshot();
@@ -314,7 +314,7 @@ describe('Interweave', () => {
 
 		it('strips HTML', () => {
 			const actual = ReactDOMServer.renderToStaticMarkup(
-				<Interweave content="This is <b>bold</b>." noHtml />,
+				<Interweave noHtml content="This is <b>bold</b>." />,
 			);
 
 			expect(actual).toBe('<span>This is bold.</span>');
@@ -332,7 +332,7 @@ describe('Interweave', () => {
 
 		it('supports filters', () => {
 			const actual = ReactDOMServer.renderToStaticMarkup(
-				<Interweave filters={[new LinkFilter()]} content={'Foo <a href="foo.com">Bar</a> Baz'} />,
+				<Interweave content={'Foo <a href="foo.com">Bar</a> Baz'} filters={[new LinkFilter()]} />,
 			);
 
 			expect(actual).toBe('<span>Foo <a href="bar.net" target="_blank">Bar</a> Baz</span>');
@@ -341,7 +341,7 @@ describe('Interweave', () => {
 
 		it('supports matchers', () => {
 			const actual = ReactDOMServer.renderToStaticMarkup(
-				<Interweave matchers={[new CodeTagMatcher('b', '1')]} content="Foo [b] Bar Baz" />,
+				<Interweave content="Foo [b] Bar Baz" matchers={[new CodeTagMatcher('b', '1')]} />,
 			);
 
 			expect(actual).toBe('<span>Foo <span>B</span> Bar Baz</span>');
@@ -360,7 +360,9 @@ describe('Interweave', () => {
 		});
 
 		it('replaces the element', () => {
-			const Dummy = () => <div />;
+			function Dummy() {
+				return <div />;
+			}
 			const transform = (node: HTMLElement) => (node.nodeName === 'IMG' ? <Dummy /> : undefined);
 			const { root } = render<InterweaveProps>(
 				<Interweave content={'Foo <img/> Bar'} transform={transform} />,
@@ -370,7 +372,9 @@ describe('Interweave', () => {
 		});
 
 		it('allows blocked', () => {
-			const Dummy = () => <iframe title="foo" />;
+			function Dummy() {
+				return <iframe title="foo" />;
+			}
 			const transform = (node: HTMLElement) => (node.nodeName === 'IFRAME' ? <Dummy /> : undefined);
 			const { root } = render<InterweaveProps>(
 				<Interweave content={'Foo <iframe></iframe> Bar'} transform={transform} />,

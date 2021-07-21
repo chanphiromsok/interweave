@@ -13,8 +13,8 @@ import {
 	FILTER_NO_CAST,
 	TAGS,
 } from './constants';
-import Element from './Element';
-import StyleFilter from './StyleFilter';
+import { Element } from './Element';
+import { StyleFilter } from './StyleFilter';
 import {
 	Attributes,
 	AttributeValue,
@@ -44,7 +44,7 @@ function createDocument() {
 	return document.implementation.createHTMLDocument('Interweave');
 }
 
-export default class Parser {
+export class Parser {
 	allowed: Set<string>;
 
 	banned: Set<string>;
@@ -69,10 +69,8 @@ export default class Parser {
 		matchers: MatcherInterface[] = [],
 		filters: FilterInterface[] = [],
 	) {
-		if (__DEV__) {
-			if (markup && typeof markup !== 'string') {
-				throw new TypeError('Interweave parser requires a valid string.');
-			}
+		if (__DEV__ && markup && typeof markup !== 'string') {
+			throw new TypeError('Interweave parser requires a valid string.');
 		}
 
 		this.props = props;
@@ -132,10 +130,7 @@ export default class Parser {
 			const config = this.getTagConfig(tagName);
 
 			// Skip matchers that have been disabled from props or are not supported
-			if (
-				(props as { [key: string]: unknown })[matcher.inverseName] ||
-				!this.isTagAllowed(tagName)
-			) {
+			if ((props as Record<string, unknown>)[matcher.inverseName] || !this.isTagAllowed(tagName)) {
 				return;
 			}
 
@@ -276,7 +271,7 @@ export default class Parser {
 			return undefined;
 		}
 
-		const tag = this.props.containerTagName || 'body';
+		const tag = this.props.containerTagName ?? 'body';
 		const el = tag === 'body' || tag === 'fragment' ? doc.body : doc.createElement(tag);
 
 		if (markup.match(INVALID_ROOTS)) {
@@ -303,7 +298,7 @@ export default class Parser {
 			return null;
 		}
 
-		Array.from(node.attributes).forEach((attr) => {
+		[...node.attributes].forEach((attr) => {
 			const { name, value } = attr;
 			const newName = name.toLowerCase();
 			const filter = ATTRIBUTES[newName] || ATTRIBUTES[name];
@@ -315,14 +310,13 @@ export default class Parser {
 
 			// Do not allow denied attributes, excluding ARIA attributes
 			// Do not allow events or XSS injections
-			if (!newName.match(ALLOWED_ATTRS)) {
-				if (
-					(!allowAttributes && (!filter || filter === FILTER_DENY)) ||
+			if (
+				!newName.match(ALLOWED_ATTRS) &&
+				((!allowAttributes && (!filter || filter === FILTER_DENY)) ||
 					newName.startsWith('on') ||
-					value.replace(/(\s|\0|&#x0([9AD]);)/, '').match(/(javascript|vbscript|livescript|xss):/i)
-				) {
-					return;
-				}
+					value.replace(/(\s|\0|&#x0([9AD]);)/, '').match(/(javascript|vbscript|livescript|xss):/i))
+			) {
+				return;
 			}
 
 			// Apply attribute filters
@@ -359,9 +353,9 @@ export default class Parser {
 	 * Extract the style attribute as an object and remove values that allow for attack vectors.
 	 */
 	extractStyleAttribute(node: HTMLElement): object {
-		const styles: { [key: string]: number | string } = {};
+		const styles: Record<string, number | string> = {};
 
-		Array.from(node.style).forEach((key) => {
+		[...node.style].forEach((key) => {
 			const value = node.style[key as keyof CSSStyleDeclaration];
 
 			if (typeof value === 'string' || typeof value === 'number') {
@@ -411,7 +405,7 @@ export default class Parser {
 
 			// Fragment protocols start with about:
 			// So let's just allow them
-			if (href && href.charAt(0) === '#') {
+			if (href?.startsWith('#')) {
 				return true;
 			}
 
@@ -462,7 +456,7 @@ export default class Parser {
 		let content: Node[] = [];
 		let mergedText = '';
 
-		Array.from(parentNode.childNodes).forEach((node) => {
+		[...parentNode.childNodes].forEach((node) => {
 			// Create React elements from HTML elements
 			if (node.nodeType === ELEMENT_NODE) {
 				const tagName = node.nodeName.toLowerCase();
@@ -495,7 +489,8 @@ export default class Parser {
 
 					if (transformed === null) {
 						return;
-					} else if (typeof transformed !== 'undefined') {
+					}
+					if (typeof transformed !== 'undefined') {
 						content.push(React.cloneElement(transformed as React.ReactElement<unknown>, { key }));
 
 						return;
@@ -593,10 +588,8 @@ export default class Parser {
 			const startIndex = open.index!;
 			const isVoid = match.includes('/');
 
-			if (__DEV__) {
-				if (!elements[tokenName]) {
-					throw new Error(`Token "${tokenName}" found but no matching element to replace with.`);
-				}
+			if (__DEV__ && !elements[tokenName]) {
+				throw new Error(`Token "${tokenName}" found but no matching element to replace with.`);
 			}
 
 			// Extract the previous non-token text
@@ -620,17 +613,15 @@ export default class Parser {
 			} else {
 				const close = text.match(new RegExp(`{{{/${tokenName}}}}`))!;
 
-				if (__DEV__) {
-					if (!close) {
-						throw new Error(`Closing token missing for interpolated element "${tokenName}".`);
-					}
+				if (__DEV__ && !close) {
+					throw new Error(`Closing token missing for interpolated element "${tokenName}".`);
 				}
 
 				endIndex = close.index! + close[0].length;
 
 				nodes.push(
 					matcher.createElement(
-						this.replaceTokens(text.slice(match.length, close.index!), elements),
+						this.replaceTokens(text.slice(match.length, close.index), elements),
 						elementProps,
 					),
 				);
@@ -648,7 +639,8 @@ export default class Parser {
 		// Reduce to a string if possible
 		if (nodes.length === 0) {
 			return '';
-		} else if (nodes.length === 1 && typeof nodes[0] === 'string') {
+		}
+		if (nodes.length === 1 && typeof nodes[0] === 'string') {
 			return nodes[0];
 		}
 
