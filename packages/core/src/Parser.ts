@@ -1,4 +1,4 @@
-/* eslint-disable no-bitwise, no-cond-assign, complexity */
+/* eslint-disable no-bitwise, no-cond-assign, complexity, @typescript-eslint/no-unsafe-return */
 
 import React from 'react';
 import escapeHtml from 'escape-html';
@@ -78,7 +78,7 @@ export class Parser {
 		this.filters = [...filters, new StyleFilter()];
 		this.keyIndex = -1;
 		this.container = this.createContainer(markup || '');
-		this.allowed = new Set(props.allowList || ALLOWED_TAG_LIST);
+		this.allowed = new Set(props.allowList ?? ALLOWED_TAG_LIST);
 		this.banned = new Set(BANNED_TAG_LIST);
 		this.blocked = new Set(props.blockList);
 	}
@@ -144,7 +144,7 @@ export class Parser {
 
 			while (matchedString && (parts = matcher.match(matchedString))) {
 				const { index, length, match, valid, void: isVoid, ...partProps } = parts;
-				const tokenName = matcher.propName + elementIndex;
+				const tokenName = matcher.propName + String(elementIndex);
 
 				// Piece together a new string with interpolated tokens
 				if (index > 0) {
@@ -298,7 +298,8 @@ export class Parser {
 			return null;
 		}
 
-		[...node.attributes].forEach((attr) => {
+		// @ts-expect-error Cant type iterator
+		[...node.attributes].forEach((attr: Attr) => {
 			const { name, value } = attr;
 			const newName = name.toLowerCase();
 			const filter = ATTRIBUTES[newName] || ATTRIBUTES[name];
@@ -355,11 +356,12 @@ export class Parser {
 	extractStyleAttribute(node: HTMLElement): object {
 		const styles: Record<string, number | string> = {};
 
-		[...node.style].forEach((key) => {
+		// @ts-expect-error Cant type iterator
+		[...node.style].forEach((key: string) => {
 			const value = node.style[key as keyof CSSStyleDeclaration];
 
 			if (typeof value === 'string' || typeof value === 'number') {
-				styles[key.replace(/-([a-z])/g, (match, letter) => letter.toUpperCase())] = value;
+				styles[key.replace(/-([a-z])/g, (match, letter) => String(letter).toUpperCase())] = value;
 			}
 		});
 
@@ -431,6 +433,7 @@ export class Parser {
 			return false;
 		}
 
+		// eslint-disable-next-line @typescript-eslint/prefer-nullish-coalescing
 		return this.props.allowElements || this.allowed.has(tagName);
 	}
 
@@ -456,7 +459,8 @@ export class Parser {
 		let content: Node[] = [];
 		let mergedText = '';
 
-		[...parentNode.childNodes].forEach((node) => {
+		// @ts-expect-error Cant type iterator
+		[...parentNode.childNodes].forEach((node: ChildNode) => {
 			// Create React elements from HTML elements
 			if (node.nodeType === ELEMENT_NODE) {
 				const tagName = node.nodeName.toLowerCase();
@@ -534,7 +538,7 @@ export class Parser {
 						React.createElement(
 							Element,
 							{ ...elementProps, key: this.keyIndex },
-							children || this.parseNode(nextNode, config),
+							children ?? this.parseNode(nextNode, config),
 						),
 					);
 
@@ -542,9 +546,10 @@ export class Parser {
 					// Important: If the current element is not allowed,
 					// use the parent element for the next scope.
 				} else {
-					content = content.concat(
-						this.parseNode(nextNode, config.tagName ? config : parentConfig),
-					);
+					content = [
+						...content,
+						...this.parseNode(nextNode, config.tagName ? config : parentConfig),
+					];
 				}
 
 				// Apply matchers if a text node
@@ -552,12 +557,12 @@ export class Parser {
 				const text =
 					noHtml && !noHtmlExceptMatchers
 						? node.textContent
-						: this.applyMatchers(node.textContent || '', parentConfig);
+						: this.applyMatchers(node.textContent ?? '', parentConfig);
 
 				if (Array.isArray(text)) {
-					content = content.concat(text);
+					content = [...content, ...text];
 				} else {
-					mergedText += text;
+					mergedText += text!;
 				}
 			}
 		});
